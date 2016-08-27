@@ -1,0 +1,323 @@
+Page 1  .\video_in_out_basiccrt.s
+ADI easmblkfn (2.7.4.1) 04 Sep 2010 16:38:52
+
+offset       opcode  line
+======       ======  ====
+                        1 /* MANAGED-BY-SYSTEM-BUILDER                                    */
+                        2 
+                        3 /*
+                        4 ** video_in_out_basiccrt.s generated on Sep 13, 2007 at 11:45:13.
+                        5 **
+                        6 ** Copyright (C) 2000-2007 Analog Devices Inc., All Rights Reserved.
+                        7 ** This contains Analog Devices Background IP and Development IP as
+                        8 ** defined in the ADI/Intel Collaboration Agreement.
+                        9 **
+                       10 ** This file is generated automatically based upon the options selected
+                       11 ** in the Startup Code Wizard. Changes to the startup configuration
+                       12 ** should be made by changing the appropriate options rather than
+                       13 ** editing this file. Additional user code to be executed before calling
+                       14 ** main can be inserted between the labels .start_of_user_code1 and
+                       15 ** .end_of_user_code1 or .start_of_user_code2 and .end_of_user_code2.
+                       16 ** This code is preserved if the CRT is re-generated.
+                       17 **
+                       18 ** Configuration:-
+                       19 **     processor:                    ADSP-BF561
+                       20 **     si_revision:                  automatic
+                       21 **     cplb_init:                    false
+                       22 **     mem_init:                     false
+                       23 **     device_init:                  true
+                       24 **     init_regs:                    false
+                       25 **     zero_return_regs:             false
+                       26 **     use_profiling:                false
+                       27 **     using_cplusplus:              true
+                       28 **     set_clock_and_power:          false
+                       29 **
+                       30 */
+                       31 
+                       32 /////////////////////////////////////////////////////////////////
+                       33 // blackfin-edinburgh-core
+                       34 #include <sys/platform.h>
+                       35 #include <sys/anomaly_macros_rtl.h>
+                       36 
+                       37 /////////////////////////////////////////////////////////////////
+                       38 // standard
+                       39 #define IVBh (EVT0 >> 16)
+                       40 #define IVBl (EVT0 & 0xFFFF)
+                       41 #define UNASSIGNED_VAL 0x8181
+                       42 #define INTERRUPT_BITS 0x400    // just IVG15
+                       43 #define SYSCFG_VALUE 0x30
+                       44 
+     0                 45     .section/DOUBLEANY program;
+                       46     .file_attr requiredForROMBoot;
+     0                 47     .align 2;
+                       48 
+     0                 49 start:
+                       50 
+                       51 /////////////////////////////////////////////////////////////////
+                       52 // standard
+                       53 #if WA_05000229
+                       54     // Avoid Anomaly 05-00-0229: DMA5_CONFIG and SPI_CTL not cleared on reset.
+                       55     R1 = 0x400;
+                       56 #if defined(__ADSPBF538__) || defined(__ADSPBF539__)
+                       57     P0.L = SPI0_CTL & 0xFFFF;
+                       58     P0.H = SPI0_CTL >> 16;
+                       59     W[P0] = R1.L;
+                       60 #else
+                       61     P0.L = SPI_CTL & 0xFFFF;
+                       62     P0.H = SPI_CTL >> 16;
+                       63     W[P0] = R1.L;
+                       64 #endif
+                       65     P0.L = DMA5_CONFIG & 0xFFFF;
+                       66     P0.H = DMA5_CONFIG >> 16;
+                       67     R1 = 0;
+                       68     W[P0] = R1.L;
+                       69 #endif
+                       70     // Clear loop counters to disable hardware loops
+     0         0760    71     R7 = 0;
+     2         073c    72     LC0 = R7;
+     4         1f3c    73     LC1 = R7;
+                       74 
+                       75     // Clear the DAG Length regs, to force linerar addressing
+     6         2736    76     L0 = R7;
+     8         2f36    77     L1 = R7;
+     a         3736    78     L2 = R7;
+     c         3f36    79     L3 = R7;
+                       80 
+                       81     // Clear ITEST_COMMAND and DTEST_COMMAND registers
+     e         10e1    82     I0.L = (ITEST_COMMAND & 0xFFFF);
+    10         0013    82 
+    12         50e1    83     I0.H = (ITEST_COMMAND >> 16);
+    14         e0ff    83 
+    16         11e1    84     I1.L = (DTEST_COMMAND & 0xFFFF);
+    18         0003    84 
+    1a         51e1    85     I1.H = (DTEST_COMMAND >> 16);
+    1c         e0ff    85 
+    1e         079f    86     [I0] = R7;
+    20         0f9f    87     [I1] = R7;
+    22         2300    88     CSYNC;
+                       89 
+                       90     // Initialise the Event Vector table.
+    24         48e1    91     P0.H = IVBh;
+    26         e0ff    91 
+    28         08e1    92     P0.L = IVBl;
+    2a         0020    92 
+                       93 
+                       94     // Install __unknown_exception_occurred in EVT so that
+                       95     // there is defined behaviour.
+    2c         406c    96     P0 += 2*4;      // Skip Emulation and Reset
+    2e         6968    97     P1 = 13;
+    30         01e1    98     R1.L = __unknown_exception_occurred;
+    32         0000    98 
+    34         41e1    99     R1.H = __unknown_exception_occurred;
+    36         0000    99 
+    38         a0e0   100     LSETUP (.ivt,.ivt) LC0 = P1;
+    3a         0010   100 
+    3c                101 .ivt:   [P0++] = R1;
+    3c         0192   101 
+                      102 
+                      103     // Set IVG15's handler to be the start of the mode-change
+                      104     // code. Then, before we return from the Reset back to user
+                      105     // mode, we'll raise IVG15. This will mean we stay in supervisor
+                      106     // mode, and continue from the mode-change point, but at a
+                      107     // much lower priority.
+    3e         49e1   108     P1.H = supervisor_mode;
+    40         0000   108 
+    42         09e1   109     P1.L = supervisor_mode;
+    44         0000   109 
+    46         4193   110     [P0] = P1;
+                      111 
+                      112 /////////////////////////////////////////////////////////////////
+                      113 // standard
+                      114     // Initialise the stack.
+                      115     // Note: this points just past the end of the section.
+                      116     // First write should be with [--SP].
+    48         0ee1   117     SP.L=ldf_stack_end;
+    4a         0000   117 
+    4c         4ee1   118     SP.H=ldf_stack_end;
+    4e         0000   118 
+    50         463e   119     usp = sp;
+                      120 
+                      121     // We're still in supervisor mode at the moment, so the FP
+                      122     // needs to point to the supervisor stack.
+    52         7e32   123     FP = SP;
+                      124 
+                      125     // Make space for incoming "parameters" for functions
+                      126     // we call from here:
+    54         a66f   127     SP += -12;
+                      128 
+    56         20e1   129     R0 = INTERRUPT_BITS;
+    58         0004   129 
+    5a         284f   130     R0 <<= 5;   // Bits 0-4 not settable.
+    5c         00e3   131     CALL.X __install_default_handlers;
+    5e         0000   131 
+    60                131 
+                      132 
+    60         ca31   133     R1 = SYSCFG;
+    62         2030   134     R4 = R0;        // Save modified list
+    64         094a   135     BITSET(R1,1);
+    66         113e   136     SYSCFG = R1;    // Enable the cycle counter
+                      137 
+                      138 
+                      139 /*$VDSG<insert-code-early-startup>                              */
+    68                140 .start_of_user_code1:
+                      141   // Insert additional code to be executed before main here.
+                      142   // This code is preserved if the CRT is re-generated.
+    68                143 .end_of_user_code1:
+                      144 /*$VDSG<insert-code-early-startup>                              */
+                      145 
+                      146 /////////////////////////////////////////////////////////////////
+                      147 // blackfin-multi-core
+                      148     // Initialise the multi-core data tables.
+    68         00e3   149     CALL.X __mc_data_initialise;
+    6a         0000   149 
+    6c                149 
+                      150 .extern __mc_data_initialise;
+                      151 .type __mc_data_initialise,STT_FUNC;
+                      152 
+                      153 /////////////////////////////////////////////////////////////////
+                      154 // standard
+                      155     //  Enable interrupts
+    6c         4400   156     STI R4;     // Using the mask from default handlers
+    6e         9f00   157     RAISE 15;
+                      158 
+                      159     // Move the processor into user mode.
+    70         08e1   160     P0.L=still_interrupt_in_ipend;
+    72         0000   160 
+    74         48e1   161     P0.H=still_interrupt_in_ipend;
+    76         0000   161 
+    78         583e   162     RETI=P0;
+    7a         0000   163     NOP;        // Purely to prevent a stall warning
+                      164 
+    7c                165 still_interrupt_in_ipend:
+                      166     // execute RTI until we've `finished` servicing all
+                      167     // interrupts of priority higher than IVG15. Normally one
+                      168     // would expect to only have the reset interrupt in IPEND
+                      169     // being serviced, but occasionally when debugging this may
+                      170     // not be the case - if restart is hit when servicing an
+                      171     // interrupt.
+                      172     //
+                      173     // When we clear all bits from IPEND, we'll enter user mode,
+                      174     // then we'll automatically jump to supervisor_mode to start
+                      175     // servicing IVG15 (which we will 'service' for the whole
+                      176     // program, so that the program is in supervisor mode.
+                      177     // Need to do this to 'finish' servicing the reset interupt.
+    7c         1100   178     RTI;
+                      179 
+    7e                180 supervisor_mode:
+    7e         7b01   181     [--SP] = RETI;  // re-enables the interrupt system
+    80         00e1   182     R0.L = UNASSIGNED_VAL;
+    82         8181   182 
+    84         40e1   183     R0.H = UNASSIGNED_VAL;
+    86         8181   183 
+                      184 
+                      185     // Push a RETS and Old FP onto the stack, for sanity.
+    88         4001   186     [--SP]=R0;
+    8a         4001   187     [--SP]=R0;
+                      188     // Make sure the FP is sensible.
+    8c         7e32   189     FP = SP;
+                      190     // Leave space for incoming "parameters"
+    8e         a66f   191     SP += -12;
+                      192 
+                      193 
+                      194 /*$VDSG<insert-code-before-device-initialization>               */
+    90                195 .start_of_user_code2:
+                      196   // Insert additional code to be executed before device initialization here.
+                      197   // This code is preserved if the CRT is re-generated.
+    90                198 .end_of_user_code2:
+                      199 /*$VDSG<insert-code-before-device-initialization>               */
+                      200 
+                      201 /////////////////////////////////////////////////////////////////
+                      202 // device-initialization
+                      203     // initialise the devices known about for stdio.
+    90         00e3   204     CALL.X _init_devtab;
+    92         0000   204 
+    94                204 
+                      205 .extern _init_devtab;
+                      206 .type _init_devtab,STT_FUNC;
+                      207 
+                      208 /////////////////////////////////////////////////////////////////
+                      209 // cplusplus
+    94         00e3   210     CALL.X ___ctorloop; // run global scope C++ constructors
+    96         0000   210 
+    98                210 
+                      211 .extern ___ctorloop;
+                      212 .type ___ctorloop,STT_FUNC;
+                      213 
+                      214 
+                      215 /*$VDSG<insert-code-before-main-entry>                          */
+    98                216 .start_of_user_code:
+                      217   // Insert additional code to be executed before main here.
+                      218   // This code is preserved if the CRT is re-generated.
+    98                219 .end_of_user_code:
+                      220 /*$VDSG<insert-code-before-main-entry>                          */
+                      221 
+                      222 /////////////////////////////////////////////////////////////////
+                      223 // get-args
+                      224     // Read command-line arguments.
+    98         00e3   225     CALL.X __getargv;
+    9a         0000   225 
+    9c                225 
+    9c         01e1   226     r1.l=__Argv;
+    9e         0000   226 
+    a0         41e1   227     r1.h=__Argv;
+    a2         0000   227 
+                      228 
+                      229 .extern __getargv;
+                      230 .type __getargv,STT_FUNC;
+                      231 .extern __Argv;
+                      232 .type __Argv,STT_OBJECT;
+                      233 
+                      234 /////////////////////////////////////////////////////////////////
+                      235 // standard
+                      236     // Call the application program.
+    a4         00e3   237     CALL.X _main;
+    a6         0000   237 
+    a8                237 
+                      238 
+                      239 /////////////////////////////////////////////////////////////////
+                      240 // call-exit
+    a8         00e3   241     CALL.X _exit;   // passing in main's return value
+    aa         0000   241 
+    ac                241 
+                      242 .extern _exit;
+                      243 .type _exit,STT_FUNC;
+                      244 
+                      245 /////////////////////////////////////////////////////////////////
+                      246 // standard
+    ac                247 .start.end:     // Required by the linker to know the size of the routine
+                      248                 // that is needed for absolute placement.
+                      249 
+                      250 .global start;
+                      251 .type start,STT_FUNC;
+                      252 .global .start.end;
+                      253 .type .start.end,STT_FUNC;
+                      254 .extern _main;
+                      255 .type _main,STT_FUNC;
+                      256 .extern ldf_stack_end;
+                      257 .extern __unknown_exception_occurred;
+                      258 .type __unknown_exception_occurred,STT_FUNC;
+                      259 .extern __install_default_handlers;
+                      260 .type __install_default_handlers,STT_FUNC;
+                      261 
+                      262 
+                      263 /////////////////////////////////////////////////////////////////
+                      264 // cplusplus
+     0                265 .section/DOUBLEANY ctor;
+     0                266     .align 4;
+     0                267 ___ctor_table:
+                      268     .byte4=0;
+                      269 .global ___ctor_table;
+                      270 .type ___ctor_table,STT_OBJECT;
+     0                271 .section/DOUBLEANY .gdt;
+     0                272         .align 4;
+     0                273 ___eh_gdt:
+                      274 .global ___eh_gdt;
+                      275         .byte4=0;
+                      276 .type ___eh_gdt,STT_OBJECT;
+     0                277 .section/DOUBLEANY .frt;
+     0                278         .align 4;
+     0                279 ___eh_frt:
+                      280 .global ___eh_frt;
+                      281         .byte4=0;
+                      282 .type ___eh_frt,STT_OBJECT;
+                      283 
